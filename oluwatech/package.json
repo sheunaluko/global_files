@@ -1,0 +1,11 @@
+{
+  "name": "oluwatech",
+  "version": "1.0.0",
+  "description": "",
+  "main": "oluwatech.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "sheun aluko",
+  "license": "ISC"
+}

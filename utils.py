@@ -10,16 +10,26 @@ import datetime
 import time 
 import numpy as np 
 import datetime 
+import asyncio 
+import queue
+from threading import Thread 
+import websockets 
+import logging 
 
 #reloading stuff 
 reload_children = set(["utils"] ) 
 def register(f) : 
+    try :
+        mod = sys.modules[f] 
+    except KeyError : 
+        return 
+    
     reload_children.add(f) 
-    mod = sys.modules[f] 
     def reloader() : 
         importlib.reload(mod) 
         print("Reloaded: " + f) 
     mod.r = reloader 
+    return get_logger(f) # will return a logger object
     
 def r() : 
     global reload_children 
@@ -30,6 +40,43 @@ def r() :
         importlib.reload(mod) 
     reload_children = children 
 
+
+#logger 
+
+# - 
+logging.basicConfig(level=logging.DEBUG)
+
+def get_logger(s) : 
+    header = "[{}] \t\t ~ ".format(s) 
+    
+    def fn(x,t) : 
+        if type(x) is str : 
+            #simple string, will log it             
+            l = getattr(logging,t) 
+            l(header + x)
+        else :
+            #an object, will print the header first 
+            l=getattr(logging,t)
+            l(header)
+            l(x) 
+    
+    class logger : 
+        def __init__(self) : 
+            pass 
+        
+        def i(self,x) : 
+            fn(x,'info')
+            
+        def d(self,x) : 
+            fn(x,'debug') 
+            
+        def e(self,x) : 
+            fn(x,'error') 
+            
+    #return the new object 
+    return logger()
+
+log = get_logger('util')     
     
 # params , referenc , etc .. 
 
@@ -152,6 +199,12 @@ def group_info(coll) :
 
 
 
+
+#lists 
+def cycle_add(arr,x) : 
+    return arr[1:] + x 
+
+
 # sub commands 
 def sub_cmd(cmd,mode) : 
     import subprocess
@@ -188,6 +241,8 @@ def ms_stamp_2_datetime(t) :
 def t_stamp_2_datetime(t) : 
     return datetime.datetime.fromtimestamp(t) 
 
+def t_stamp_fname() : 
+    return str(datetime.datetime.now()).replace(" ","_").replace("-","_").replace(":","_")
 
 #data science 
 
@@ -219,6 +274,45 @@ def datetime_mean(dt_list) :
 def datetime64_mean(dt_list) : 
     return np.datetime64(datetime_mean(map(lambda x: x.astype(datetime.datetime),dt_list))) 
 
+def norm(data) : 
+    return data/np.max(data) 
+
+def rms(data) : 
+    x = np.sqrt(np.mean(data*data))
+    if math.isnan(x) : 
+        print("!") 
+        print(data) 
+        print(np.mean(data*data))
+    else :
+        return x 
+
+
+
+def smooth(x,window_len=11,window='hanning'):
+    """smooth the data using a window with requested size.
+    from https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
+    """
+    if x.ndim != 1:
+        raise(ValueError, "smooth only accepts 1 dimension arrays.")
+    if x.size < window_len:
+        raise(ValueError, "Input vector needs to be bigger than window size.")
+    if window_len<3:
+        return x
+    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        raise(ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
+    #print(len(s))
+    if window == 'flat': #moving average
+        w=np.ones(window_len,'d')
+    else:
+        w=eval('np.'+window+'(window_len)')
+    y=np.convolve(w/w.sum(),s,mode='valid')
+    return y
+
+
+    
+    
+    
 def mean(coll) : 
     if type(coll[0]) == datetime.datetime : 
         return datetime_mean(coll) 
@@ -314,12 +408,135 @@ def gbytes(d) :
     return mbytes(d)/1024
     
     
-
-
-            
-
     
 #printing 
 pretty_printer = pprint.PrettyPrinter(indent=4)
 def pretty(val) : 
     pretty_printer.pprint(val)
+
+#json_or_string
+def json_or_string(s) : 
+    try : 
+        msg = json.loads(s) 
+    except : 
+        msg = s 
+    return msg
+
+
+        
+
+    
+# WS CLIENT  
+ws_logger = logging.getLogger('websockets')
+ws_logger.setLevel(logging.ERROR)
+ws_logger.addHandler(logging.StreamHandler())
+
+async def listen(ou_ch,ws) : 
+    while True : 
+        #print("listen")
+        msg = await ws.recv()
+        ou_ch.put(msg) 
+        
+async def relay(in_ch,ws) :         
+    while True : 
+        try : 
+            msg = in_ch.get(block=False) 
+            await ws.send(json.dumps(msg))
+        except queue.Empty : 
+            await asyncio.sleep(0)
+
+async def main(i,o,url,on_connect) : 
+    
+    async with websockets.connect(url) as websocket:
+        log.i("WS client connected to: {}".format(url))
+        if on_connect != None : 
+            log.i("#running on_connect")
+            await on_connect(websocket)
+        # now we start the listening and the sending tasks 
+        await asyncio.gather( 
+            relay(i,websocket) ,            
+            listen(o,websocket), 
+        ) 
+
+def start_server(i,o,url,on_connect) : 
+    asyncio.run(main(i,o,url,on_connect))
+
+    
+def output_loop(q,on_msg) : 
+    while True : 
+        msg = q.get() 
+        if on_msg != None :
+            on_msg(msg) 
+    
+#define ws class 
+class ws : 
+    def __init__(self,i,o,client_thread, output_thread) : 
+        self.i = i 
+        self.o = o 
+        self.client_thread = client_thread 
+        self.output_thread = output_thread
+            
+    def send(self,x) : 
+        self.i.put(x) 
+
+            
+def ws_client(host="localhost",port=8000,on_connect=None,on_msg=None)  : 
+    o = queue.Queue()
+    i = queue.Queue() 
+    url = "ws://{}:{}".format(host,port) 
+    #start the client thread 
+    client_thread = Thread(target=start_server, args=(i,o,url,on_connect,))
+    client_thread.start()
+    #will also start a thread that will check the output queue 
+    output_thread = Thread(target=output_loop, args=(o,on_msg))
+    output_thread.start() 
+    #and will prepare the return object now 
+    w = ws(i,o,client_thread,output_thread)
+    return w
+
+
+
+#HTTP server   --- 
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
+
+def http_server(port,handle_get) : 
+    # HTTPRequestHandler class
+    class MyHandler(BaseHTTPRequestHandler):
+        
+        # GET
+        def do_GET(self):
+            # Send response status code2
+            self.send_response(200)
+        
+            # Send headers
+            self.send_header('Content-type','application/json')
+            self.end_headers()
+        
+            query_components = parse_qs(urlparse(self.path).query)
+            log.i("Received msg: {}".format(json.dumps(query_components))) 
+            
+            result = handle_get(json.loads(query_components['payload'][0]))
+            
+            log.d("HTTP got result: {}".format(result)) 
+        
+            # Send message back to client
+            message = json.dumps(result) 
+            # Write content as utf-8 data
+            log.i("Sending response: {}".format(message))
+            self.wfile.write(bytes(message, "utf8"))
+            return
+    
+    def run():
+        log.i("Starting http server on port {}".format(port) )
+        # Server settings
+        server_address = ('127.0.0.1', port)
+        httpd = HTTPServer(server_address, MyHandler) 
+        httpd.serve_forever()
+        
+    # create new thread to run server in and return the thread 
+    server_thread = Thread(target=run)
+    server_thread.start() 
+    return server_thread 
