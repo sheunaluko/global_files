@@ -497,7 +497,7 @@ def ws_client(host="localhost",port=8000,on_connect=None,on_msg=None)  :
 
 
 #HTTP server   --- 
-logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -540,3 +540,10 @@ def http_server(port,handle_get) :
     server_thread = Thread(target=run)
     server_thread.start() 
     return server_thread 
+
+
+
+# disable loggers ! 
+
+logging.getLogger("urllib3").setLevel(logging.WARNING) 
+logging.getLogger("matplotlib").setLevel(logging.WARNING) 

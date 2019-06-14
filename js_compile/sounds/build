@@ -1,0 +1,3 @@
+parcel build src/index.js -o sounds.js 
+echo "<html> testing js :)  <script src=\"dist/sounds.js\"></script> </html>" > index.html
+
