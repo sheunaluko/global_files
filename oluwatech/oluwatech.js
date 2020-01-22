@@ -1,4 +1,3 @@
-]\
 
 exports.foo = 30
 exports.you = 5999

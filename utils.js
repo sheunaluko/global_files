@@ -348,11 +348,11 @@ function flex_row(num,id_base,f) {
     var container, i 
     container = dom("div")  
     //container.className = "flex-row"  // see styles.css   
-    container.style = "display : flex ; flex-wrap : nowrap ; flex-direction : row ; flex-grow : 1 "
+    //container.style = "display : flex ; flex-wrap : nowrap ; flex-direction : row ; flex-grow : 1 "
         
     for (i =0 ; i < num ; i ++ ) { 
 	var d = dom("div") 
-	d.style = "flex-grow : 1"
+	//d.style = "flex-grow : 1"
 	var html = f(i,d) 
 	if (html) { 
 	    set_inner_html(d, html) 
@@ -374,7 +374,7 @@ function make_div_array(m,n,id_base,f) {
     //container.className = "flex-column"  // see styles.css  
     container.id = id_base 
     
-    container.style = "width: 100% ; height : 100% ; display : flex ; flex-wrap : nowrap ; flex-direction : column "
+    //container.style = "width: 100% ; height : 100% ; display : flex ; flex-wrap : nowrap ; flex-direction : column "
     
     // now we will add in the child elements 
     for (i =0 ; i < m ; i ++ ) { 

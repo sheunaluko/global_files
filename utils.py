@@ -143,7 +143,7 @@ def lines(s) :
     
 def read_and_split_file(fname, splitter) : 
     s = read_big_string(fname) 
-    lines = [ x for x in s.split(splitter) if x is not "" ] 
+    lines = [ x for x in s.split(splitter) if x != "" ] 
     return lines 
 
 def read_split_map_file(fname,splitter,mapper) : 
