@@ -130,8 +130,9 @@ async function define(_var_name,f) {
 }
 
 function safe_eval(t) { 
-    // ! ! Not actually safe yet lol 
-    return eval(t) 
+    let v = sanitize(t)
+    // ! ! Not actually completely safe yet lol 
+    return eval(v) 
 }
 
 
@@ -157,6 +158,10 @@ function loop_until_true(f,rate ,timeout) {
     }) 
     //return the promise now 
     return p
+}
+
+function wait_until(f,timeout, rate=500) { 
+    return loop_until_true(f,rate,timeout) 
 }
 
 
@@ -216,9 +221,14 @@ function read_json(file) {
 var format = nutil.format 
 
 
-function send_thing(txt, subject = ":)" , address = "9016525382@txt.att.net") { 
+function send_thing(txt, subject = ":)" , address) { 
     let user = process.env.gmail_user
     let pass = process.env.gmail_pass
+    
+    if (! user || ! pass ) { 
+	log("Please define environment vars gmail_user and gmail_pass to send email") 
+	return 
+    } 
     
     var nodemailer = require('nodemailer');
 
@@ -247,12 +257,13 @@ function send_thing(txt, subject = ":)" , address = "9016525382@txt.att.net") {
     
 }
 
-function send_text(txt) { 
-    return send_thing(txt,"autotext") 
+function send_text(txt,number) { 
+    let address = number + "@txt.att.net"    
+    return send_thing(txt,"autotext",address) 
 }
 
-function send_email(txt, subject = "automail" ) { 
-    return send_thing(txt,subject,  "alukosheun@gmail.com")
+function send_email(txt, subject = "automail" ,address ) { 
+    return send_thing(txt,subject,  address)
 }
 
 

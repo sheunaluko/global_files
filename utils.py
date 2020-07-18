@@ -50,7 +50,7 @@ def get_logger(s) :
     header = "[{}] \t\t ~ ".format(s) 
     
     def fn(x,t) : 
-        if type(x) is str : 
+        if type(x) == str : 
             #simple string, will log it             
             l = getattr(logging,t) 
             l(header + x)
@@ -190,7 +190,7 @@ def find_duplicates(coll) :
     return (seen,dupes) 
 
 def group_info(coll) : 
-    s,d = find_duplicates(coll) 
+    s,_ = find_duplicates(coll) 
     total = sum(list(s.values()))
     for k,v in s.items() : 
         s[k] = {'frequency' : v , 
@@ -211,16 +211,16 @@ def sub_cmd(cmd,mode) :
     import sys
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     to_return = "" 
-    if mode is "q" : 
+    if mode == "q" : 
         #do nothing 
         pass 
     else : 
         for c in iter(lambda: process.stdout.read(1), b''): 
             ch = c.decode()
             to_return += ch 
-            if mode is "v" : 
+            if mode == "v" : 
                 sys.stdout.write(ch)
-    if mode is "s" : 
+    if mode == "s" : 
         return to_return 
 
 def sub_cmd_v(cmd) : 
@@ -293,13 +293,14 @@ def smooth(x,window_len=11,window='hanning'):
     from https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
     """
     if x.ndim != 1:
-        raise(ValueError, "smooth only accepts 1 dimension arrays.")
+        raise ValueError("smooth only accepts 1 dimension arrays.")
     if x.size < window_len:
-        raise(ValueError, "Input vector needs to be bigger than window size.")
+        raise ValueError("Input vector needs to be bigger than window size.")
     if window_len<3:
         return x
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise(ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+        raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+
     s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
     #print(len(s))
     if window == 'flat': #moving average
@@ -372,14 +373,14 @@ def now() :
 
 def time_function(f) : 
     t0 = now() 
-    throw_away = f() 
+    _ = f() 
     return now() - t0 
 
 def get_size(obj, seen=None):
     """Recursively finds size of objects"""
     ##https://goshippo.com/blog/measure-real-size-any-python-object/ 
     size = sys.getsizeof(obj)
-    if seen is None:
+    if seen == None:
         seen = set()
     obj_id = id(obj)
     if obj_id in seen:
